@@ -1,4 +1,4 @@
-name: Build and Publish Redmica Image
+name: Build and Publish Redmica Image - ${{ github.ref_name }}
 
 on:
   push:
