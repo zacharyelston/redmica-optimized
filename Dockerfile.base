@@ -1,0 +1,71 @@
+# Dockerfile.base - Precompiled base image with dependencies and gems
+FROM ruby:3.2-slim-bookworm as base
+
+# Create redmine user with uid/gid 999 for consistency
+RUN groupadd -r -g 999 redmine && useradd -r -g redmine -u 999 redmine
+
+# Install runtime and build dependencies
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        imagemagick \
+        tini \
+        wget \
+        gcc \
+        postgresql-server-dev-all \
+        libyaml-dev \
+        libffi-dev \
+        libssl-dev \
+        make \
+        patch \
+        pkgconf \
+        build-essential \
+    ; \
+    rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /redmica
+
+# Copy Gemfiles first for better layer caching
+COPY Gemfile* ./
+
+# Install gems with system libraries
+RUN set -eux; \
+    bundle config set --local without 'development test'; \
+    bundle install; \
+    # Clean up build dependencies in production stage
+    apt-get purge -y --auto-remove \
+        gcc \
+        make \
+        patch \
+        pkgconf \
+        build-essential; \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy application code
+COPY . .
+
+# Set proper permissions for arbitrary user execution
+RUN set -eux; \
+    chown -R redmine:redmine /redmica; \
+    chmod -R g=u /redmica
+
+# Set production environment
+ENV RAILS_ENV=production \
+    RACK_ENV=production
+
+# Create entrypoint script for asset precompilation at runtime
+RUN echo '#!/bin/bash\nset -e\necho "Precompiling assets..."\nRAILS_ENV=production SECRET_KEY_BASE=${SECRET_KEY_BASE:-$(bundle exec rails secret)} bundle exec rake assets:precompile\necho "Starting Redmica..."\nexec bundle exec rails server -b 0.0.0.0' > /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Switch to non-root user
+USER redmine
+
+# Expose port
+EXPOSE 3000
+
+# Use tini as init system
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/usr/local/bin/docker-entrypoint.sh"]

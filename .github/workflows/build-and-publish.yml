@@ -45,11 +45,27 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: Determine build strategy
+      id: strategy
+      run: |
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          echo "dockerfile=Dockerfile.fast" >> $GITHUB_OUTPUT
+          echo "base_tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+        else
+          echo "dockerfile=Dockerfile" >> $GITHUB_OUTPUT
+          echo "base_tag=latest" >> $GITHUB_OUTPUT
+        fi
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
+        file: ./${{ steps.strategy.outputs.dockerfile }}
         platforms: linux/amd64,linux/arm64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        build-args: |
+          BASE_TAG=${{ steps.strategy.outputs.base_tag }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

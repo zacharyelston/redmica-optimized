@@ -1,0 +1,19 @@
+# Dockerfile.fast - Fast build using precompiled base
+ARG BASE_TAG=latest
+FROM ghcr.io/zacharyelston/redmica-optimized-base:${BASE_TAG} as base
+
+# Switch to root for configuration changes
+USER root
+
+# Copy only configuration files that might change
+COPY config/ ./config/
+
+# Set proper permissions
+RUN chown -R redmine:redmine /redmica/config
+
+# Switch back to non-root user
+USER redmine
+
+# Use same entrypoint as base
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
