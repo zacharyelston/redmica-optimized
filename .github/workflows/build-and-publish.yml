@@ -2,7 +2,7 @@ name: Build and Publish Redmica Image
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ 'feature/*' ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
