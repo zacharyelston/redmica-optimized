@@ -29,17 +29,13 @@ COPY . .
 # Production stage
 FROM ruby:3.2-slim AS production
 
-# Install only runtime dependencies
+# Install runtime dependencies only
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
         libpq5 \
         imagemagick \
-        curl \
-        libyaml-0-2 \
-        libffi8 \
-        libssl3 && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get clean
+        tini && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /redmica
 
@@ -70,5 +66,6 @@ USER redmica
 # Expose default Redmica port
 EXPOSE 3000
 
-# Entrypoint for production
+# Use tini as init system
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/usr/local/bin/docker-entrypoint.sh"]
